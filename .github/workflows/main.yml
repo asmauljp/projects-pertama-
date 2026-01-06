@@ -1,47 +1,26 @@
-name: projects-pertama
 
-on: 
-  workflow_dispatch:
+name: projects pertama 
+
+on: [push, workflow_dispatch]
 
 jobs:
   build:
+
     runs-on: windows-latest
-    timeout-minutes: 360
 
     steps:
-      - name: Preparing Ngrok
-        run: |
-          Invoke-WebRequest https://bin.equinox.io/c/b342P9769L5/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
-          Expand-Archive ngrok.zip
-          
-      - name: Set Ngrok Token
-        run: .\ngrok.exe authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
-        
-      - name: Enable Remote Desktop
-        run: |
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
-          Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
-          
-      - name: Create Administrator Account
-        run: |
-          net user administrator Password123! /add
-          net localgroup administrators administrator /add
-          
-      - name: Start Tunneling
-        run: Start-Process .\ngrok.exe -ArgumentList "tcp 3389"
-        
-      - name: Connection Information
-        run: |
-          $n = curl http://localhost:4040/api/tunnels | ConvertFrom-Json
-          $addr = $n.tunnels[0].public_url
-          Write-Host "=============================================="
-          Write-Host "RDP HOST ADDRESS : $addr"
-          Write-Host "USERNAME         : administrator"
-          Write-Host "PASSWORD         : Password123!"
-          Write-Host "=============================================="
-          
-      - name: Keep Alive Session
-        run: |
-          $timeout = 360
-          Start-Sleep -Seconds ($timeout * 60)
+    - name: Download
+      run: Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
+    - name: Extract
+      run: Expand-Archive ngrok.zip
+    - name: Auth
+      run: .\ngrok\ngrok.exe authtoken $Env:NGROK_AUTH_TOKEN
+      env:
+        NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
+    - name: Enable TS
+      run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server'-name "fDenyTSConnections" -Value 0
+    - run: Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+    - run: Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1
+    - run: Set-LocalUser -Name "runneradmin" -Password (ConvertTo-SecureString -AsPlainText "P@ssw0rd!" -Force)
+    - name: Create Tunnel
+      run: .\ngrok\ngrok.exe tcp 3389
